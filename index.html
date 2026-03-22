@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3×3 Question Frame</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Playfair+Display:wght@700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --accent1: #e94560;
+    --accent2: #f59e0b;
+    --accent3: #06d6a0;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --text-bright: #ffffff;
+    --d1-color: #60a5fa;
+    --d1-bg: rgba(96,165,250,0.08);
+    --d1-border: rgba(96,165,250,0.25);
+    --d2-color: #f59e0b;
+    --d2-bg: rgba(245,158,11,0.08);
+    --d2-border: rgba(245,158,11,0.25);
+    --d3-color: #e94560;
+    --d3-bg: rgba(233,69,96,0.08);
+    --d3-border: rgba(233,69,96,0.25);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh; overflow-x: hidden;
+  }
+  .noise {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 100;
+  }
+  .glow-orb { position: fixed; border-radius: 50%; filter: blur(120px); opacity: 0.15; pointer-events: none; z-index: 0; }
+  .glow-orb.one { width: 500px; height: 500px; background: var(--d1-color); top: -100px; left: -100px; }
+  .glow-orb.two { width: 400px; height: 400px; background: var(--d2-color); top: 40%; right: -80px; }
+  .glow-orb.three { width: 600px; height: 600px; background: var(--d3-color); bottom: -150px; left: 30%; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 60px 32px 80px; position: relative; z-index: 1; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 64px; animation: fadeUp 0.8s ease-out; }
+  .header .tag {
+    display: inline-block; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent1); background: rgba(233,69,96,0.1);
+    border: 1px solid rgba(233,69,96,0.2); padding: 6px 18px;
+    border-radius: 20px; margin-bottom: 24px;
+  }
+  .header h1 {
+    font-family: 'Playfair Display', serif; font-size: clamp(40px, 6vw, 72px);
+    font-weight: 900; color: var(--text-bright); line-height: 1.1;
+    margin-bottom: 16px; letter-spacing: -1px;
+  }
+  .header h1 .highlight {
+    background: linear-gradient(135deg, var(--accent1), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .header .subtitle { font-size: 16px; color: var(--text-dim); max-width: 640px; margin: 0 auto; line-height: 1.7; font-weight: 300; }
+  .hover-hint {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px;
+    color: var(--accent3); animation: pulse 2s ease-in-out infinite;
+  }
+  .hover-hint svg { width: 14px; height: 14px; }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+  /* Axes */
+  .axes-intro { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 48px; animation: fadeUp 0.8s ease-out 0.2s both; }
+  .axis-card {
+    background: var(--surface); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px; padding: 24px; text-align: center;
+    transition: transform 0.3s, border-color 0.3s;
+  }
+  .axis-card:hover { transform: translateY(-4px); border-color: rgba(255,255,255,0.12); }
+  .axis-card .axis-icon { font-size: 28px; margin-bottom: 12px; }
+  .axis-card .axis-name { font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .axis-card:nth-child(1) .axis-name { color: var(--d1-color); }
+  .axis-card:nth-child(2) .axis-name { color: var(--d2-color); }
+  .axis-card:nth-child(3) .axis-name { color: var(--d3-color); }
+  .axis-card .axis-q { font-size: 14px; color: var(--text-dim); font-weight: 300; }
+
+  /* Dim Labels */
+  .dim-labels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 24px; animation: fadeUp 0.8s ease-out 0.3s both; }
+  .dim-label { padding: 16px 20px; border-radius: 12px; display: flex; align-items: center; gap: 12px; }
+  .dim-label.d1 { background: var(--d1-bg); border: 1px solid var(--d1-border); }
+  .dim-label.d2 { background: var(--d2-bg); border: 1px solid var(--d2-border); }
+  .dim-label.d3 { background: var(--d3-bg); border: 1px solid var(--d3-border); }
+  .dim-label .dim-num { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 900; line-height: 1; }
+  .dim-label.d1 .dim-num { color: var(--d1-color); }
+  .dim-label.d2 .dim-num { color: var(--d2-color); }
+  .dim-label.d3 .dim-num { color: var(--d3-color); }
+  .dim-label .dim-info .dim-title { font-size: 14px; font-weight: 700; color: var(--text-bright); }
+  .dim-label .dim-info .dim-desc { font-size: 12px; color: var(--text-dim); font-weight: 300; }
+
+  /* Grid */
+  .grid-wrapper { animation: fadeUp 0.8s ease-out 0.4s both; }
+  .question-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;
+    background: rgba(255,255,255,0.03); border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* Cell */
+  .grid-cell {
+    padding: 28px 24px; position: relative;
+    transition: all 0.4s ease; cursor: pointer;
+    min-height: 180px; display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .grid-cell.row-1 { background: rgba(96,165,250,0.04); }
+  .grid-cell.row-1:hover { background: rgba(96,165,250,0.12); box-shadow: 0 0 40px rgba(96,165,250,0.12); }
+  .grid-cell.row-2 { background: rgba(245,158,11,0.04); }
+  .grid-cell.row-2:hover { background: rgba(245,158,11,0.12); box-shadow: 0 0 40px rgba(245,158,11,0.12); }
+  .grid-cell.row-3 { background: rgba(233,69,96,0.04); }
+  .grid-cell.row-3:hover { background: rgba(233,69,96,0.12); box-shadow: 0 0 40px rgba(233,69,96,0.12); }
+
+  .cell-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .cell-coord {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 1px; padding: 3px 8px; border-radius: 6px; font-weight: 600;
+  }
+  .row-1 .cell-coord { color: var(--d1-color); background: rgba(96,165,250,0.12); }
+  .row-2 .cell-coord { color: var(--d2-color); background: rgba(245,158,11,0.12); }
+  .row-3 .cell-coord { color: var(--d3-color); background: rgba(233,69,96,0.12); }
+  .cell-title { font-size: 17px; font-weight: 700; color: var(--text-bright); margin-bottom: 8px; line-height: 1.3; }
+  .cell-desc { font-size: 13px; color: var(--text-dim); line-height: 1.65; font-weight: 300; flex-grow: 1; }
+
+  .cell-peek {
+    margin-top: 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-dim); padding: 8px 12px; background: rgba(0,0,0,0.3);
+    border-radius: 8px; border-left: 2px solid; line-height: 1.5;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .row-1 .cell-peek { border-color: var(--d1-color); }
+  .row-2 .cell-peek { border-color: var(--d2-color); }
+  .row-3 .cell-peek { border-color: var(--d3-color); }
+  .cell-peek .peek-arrow { font-size: 14px; opacity: 0.4; transition: all 0.3s; flex-shrink: 0; }
+  .grid-cell:hover .peek-arrow { opacity: 1; transform: translateX(3px); }
+
+  /* ===== OVERLAY PANEL ===== */
+  .overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+    z-index: 500; justify-content: center; align-items: center;
+    animation: overlayIn 0.25s ease-out;
+  }
+  .overlay.active { display: flex; }
+  @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .panel {
+    width: 520px; max-width: calc(100vw - 32px); max-height: 90vh;
+    background: #161622; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 20px; overflow-y: auto; position: relative;
+    box-shadow: 0 32px 100px rgba(0,0,0,0.7), 0 0 1px rgba(255,255,255,0.15);
+    animation: panelIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes panelIn { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+  .panel-close {
+    position: absolute; top: 16px; right: 16px; width: 32px; height: 32px;
+    border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.05); color: var(--text-dim);
+    font-size: 18px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; transition: all 0.2s; z-index: 2;
+  }
+  .panel-close:hover { background: rgba(255,255,255,0.1); color: var(--text-bright); }
+
+  .panel-header { padding: 28px 28px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+  .panel-header .p-coord {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px;
+  }
+  .panel-header .p-title { font-size: 22px; font-weight: 700; color: var(--text-bright); margin-bottom: 10px; }
+  .panel-header .p-desc { font-size: 14px; color: var(--text-dim); line-height: 1.7; font-weight: 300; }
+
+  .panel-body { padding: 20px 28px 28px; }
+  .panel-body .p-section-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px; letter-spacing: 2px;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-body .p-section-label::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+  .example-list { display: flex; flex-direction: column; gap: 10px; }
+  .example-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; background: rgba(255,255,255,0.03);
+    border-radius: 12px; border-left: 3px solid transparent; transition: all 0.25s;
+  }
+  .example-item:hover { background: rgba(255,255,255,0.06); }
+  .example-item .ex-icon { font-size: 16px; flex-shrink: 0; margin-top: 2px; }
+  .example-item .ex-text { font-size: 14px; color: var(--text); line-height: 1.6; font-weight: 400; }
+  .example-item .ex-context { font-size: 12px; color: var(--text-dim); margin-top: 4px; font-weight: 300; }
+
+  /* row-specific colors in panel */
+  .panel[data-row="1"] .p-coord { color: var(--d1-color); }
+  .panel[data-row="1"] .example-item { border-left-color: rgba(96,165,250,0.4); }
+  .panel[data-row="2"] .p-coord { color: var(--d2-color); }
+  .panel[data-row="2"] .example-item { border-left-color: rgba(245,158,11,0.4); }
+  .panel[data-row="3"] .p-coord { color: var(--d3-color); }
+  .panel[data-row="3"] .example-item { border-left-color: rgba(233,69,96,0.4); }
+
+  .panel-footer {
+    padding: 14px 28px 20px; border-top: 1px solid rgba(255,255,255,0.04);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .bloom-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px; padding: 3px 10px;
+    border-radius: 6px; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .panel[data-row="1"] .bloom-tag { color: var(--d1-color); background: rgba(96,165,250,0.1); }
+  .panel[data-row="2"] .bloom-tag { color: var(--d2-color); background: rgba(245,158,11,0.1); }
+  .panel[data-row="3"] .bloom-tag { color: var(--d3-color); background: rgba(233,69,96,0.1); }
+  .panel-footer .pf-text { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+  /* Bottom sections */
+  .insight-section { margin-top: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; animation: fadeUp 0.8s ease-out 0.6s both; }
+  .insight-card { background: var(--surface); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; padding: 32px; position: relative; overflow: hidden; }
+  .insight-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
+  .insight-card.ai::before { background: linear-gradient(90deg, var(--d1-color), var(--d2-color)); }
+  .insight-card.human::before { background: linear-gradient(90deg, var(--d2-color), var(--d3-color)); }
+  .insight-card .insight-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 12px; }
+  .insight-card .insight-text { font-size: 15px; line-height: 1.7; color: var(--text); font-weight: 300; }
+  .insight-card .insight-text strong { color: var(--text-bright); font-weight: 700; }
+
+  .scholars { margin-top: 48px; text-align: center; animation: fadeUp 0.8s ease-out 0.7s both; overflow: visible; position: relative; z-index: 50; }
+  .scholars .scholars-title { font-size: 12px; font-family: 'JetBrains Mono', monospace; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim); margin-bottom: 20px; }
+  .scholar-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; position: relative; }
+  .scholar-tag { font-size: 13px; color: var(--text); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 8px 16px; border-radius: 24px; font-weight: 400; transition: all 0.3s; }
+  .scholar-tag:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); }
+  .scholar-tag span { color: var(--text-dim); font-size: 11px; font-weight: 300; }
+
+  /* Scholar Tooltips */
+  .scholar-tag {
+    position: relative; cursor: pointer;
+  }
+  .scholar-tooltip {
+    position: absolute; bottom: calc(100% + 14px); left: 50%;
+    transform: translateX(-50%) translateY(6px); width: 380px;
+    background: #161622; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px; padding: 0; z-index: 600;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 1px rgba(255,255,255,0.1);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .scholar-tag:hover .scholar-tooltip {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+  .scholar-tooltip::after {
+    content: ''; position: absolute; bottom: -7px; left: 50%;
+    transform: translateX(-50%) rotate(45deg); width: 12px; height: 12px;
+    background: #161622; border-right: 1px solid rgba(255,255,255,0.12);
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+  }
+  .st-header {
+    padding: 20px 22px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .st-avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .st-header-info .st-name {
+    font-size: 15px; font-weight: 700; color: var(--text-bright); margin-bottom: 2px;
+  }
+  .st-header-info .st-period {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--text-dim); letter-spacing: 0.5px;
+  }
+  .st-body { padding: 16px 22px 18px; }
+  .st-body .st-theory-name {
+    font-size: 13px; font-weight: 600; color: var(--accent2); margin-bottom: 8px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .st-body .st-theory-name::before {
+    content: ''; display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; background: var(--accent2); flex-shrink: 0;
+  }
+  .st-body .st-desc {
+    font-size: 13px; color: var(--text); line-height: 1.7; font-weight: 300;
+  }
+  .st-contribution {
+    padding: 12px 22px 16px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .st-contribution .st-contrib-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9px;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 8px;
+  }
+  .st-contribution .st-contrib-text {
+    font-size: 12px; color: var(--text-dim); line-height: 1.6; font-weight: 300;
+  }
+  .st-contribution .st-contrib-text strong { color: var(--text); font-weight: 500; }
+
+  /* Responsive tooltip positioning for edge tags */
+  .scholar-tag:first-child .scholar-tooltip,
+  .scholar-tag:nth-child(2) .scholar-tooltip {
+    left: 0; transform: translateX(0) translateY(6px);
+  }
+  .scholar-tag:first-child:hover .scholar-tooltip,
+  .scholar-tag:nth-child(2):hover .scholar-tooltip {
+    transform: translateX(0) translateY(0);
+  }
+  .scholar-tag:first-child .scholar-tooltip::after,
+  .scholar-tag:nth-child(2) .scholar-tooltip::after {
+    left: 40px;
+  }
+  .scholar-tag:last-child .scholar-tooltip,
+  .scholar-tag:nth-last-child(2) .scholar-tooltip {
+    left: auto; right: 0; transform: translateX(0) translateY(6px);
+  }
+  .scholar-tag:last-child:hover .scholar-tooltip,
+  .scholar-tag:nth-last-child(2):hover .scholar-tooltip {
+    transform: translateX(0) translateY(0);
+  }
+  .scholar-tag:last-child .scholar-tooltip::after,
+  .scholar-tag:nth-last-child(2) .scholar-tooltip::after {
+    left: auto; right: 40px;
+  }
+
+  .footer { margin-top: 56px; text-align: center; animation: fadeUp 0.8s ease-out 0.8s both; }
+  .footer p { font-size: 12px; color: var(--text-dim); font-weight: 300; line-height: 1.7; }
+
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 768px) {
+    .container { padding: 40px 16px 60px; }
+    .axes-intro { grid-template-columns: 1fr; gap: 12px; }
+    .dim-labels { grid-template-columns: 1fr; gap: 12px; }
+    .question-grid { grid-template-columns: 1fr; }
+    .grid-cell { min-height: auto; }
+    .insight-section { grid-template-columns: 1fr; }
+    .panel { width: calc(100vw - 16px); border-radius: 16px; }
+    .scholar-tags { flex-direction: column; align-items: center; }
+    .scholar-tooltip {
+      width: calc(100vw - 48px) !important; position: fixed !important;
+      bottom: auto !important; top: 50% !important;
+      left: 50% !important; right: auto !important;
+      transform: translate(-50%, -50%) !important;
+    }
+    .scholar-tag:hover .scholar-tooltip {
+      transform: translate(-50%, -50%) !important;
+    }
+    .scholar-tooltip::after { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="noise"></div>
+  <div class="glow-orb one"></div>
+  <div class="glow-orb two"></div>
+  <div class="glow-orb three"></div>
+
+  <!-- Overlay Panel -->
+  <div class="overlay" id="overlay">
+    <div class="panel" id="panel" data-row="1">
+      <button class="panel-close" id="panelClose">✕</button>
+      <div class="panel-header">
+        <div class="p-coord" id="pCoord"></div>
+        <div class="p-title" id="pTitle"></div>
+        <div class="p-desc" id="pDesc"></div>
+      </div>
+      <div class="panel-body">
+        <div class="p-section-label">질문 사례 Examples</div>
+        <div class="example-list" id="pExamples"></div>
+      </div>
+      <div class="panel-footer">
+        <span class="bloom-tag" id="pBloom"></span>
+        <span class="pf-text" id="pFooter"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="header">
+      <div class="tag">Strategic Thinking Framework</div>
+      <h1>3×3 <span class="highlight">Question</span> Frame</h1>
+      <p class="subtitle">
+        질문의 깊이(1·2·3차원)와 인지 축(내용·구조·성찰)을 교차하여 도출한 9가지 질문 역량 프레임워크.
+        AI 시대, 질문은 단순한 호기심이 아니라 <strong style="color:var(--text-bright)">전략적 사고 도구</strong>입니다.
+      </p>
+      <div class="hover-hint">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"/></svg>
+        각 블록을 클릭하여 질문 사례를 확인하세요
+      </div>
+    </div>
+
+    <div class="axes-intro">
+      <div class="axis-card">
+        <div class="axis-icon">📋</div>
+        <div class="axis-name">내용 축 Content</div>
+        <div class="axis-q">무엇을 묻는가</div>
+      </div>
+      <div class="axis-card">
+        <div class="axis-icon">🔗</div>
+        <div class="axis-name">구조 축 Structure</div>
+        <div class="axis-q">어떻게 연결되는가</div>
+      </div>
+      <div class="axis-card">
+        <div class="axis-icon">🔍</div>
+        <div class="axis-name">성찰 축 Reflection</div>
+        <div class="axis-q">왜 타당한가</div>
+      </div>
+    </div>
+
+    <div class="dim-labels">
+      <div class="dim-label d1">
+        <div class="dim-num">1D</div>
+        <div class="dim-info"><div class="dim-title">정보 확인</div><div class="dim-desc">재현적 사고 · Recall</div></div>
+      </div>
+      <div class="dim-label d2">
+        <div class="dim-num">2D</div>
+        <div class="dim-info"><div class="dim-title">관계·분석</div><div class="dim-desc">분석적 사고 · Analytical</div></div>
+      </div>
+      <div class="dim-label d3">
+        <div class="dim-num">3D</div>
+        <div class="dim-info"><div class="dim-title">재구성·창조</div><div class="dim-desc">생성적 사고 · Generative</div></div>
+      </div>
+    </div>
+
+    <div class="grid-wrapper">
+      <div class="question-grid">
+        <!-- 1D × 내용 -->
+        <div class="grid-cell row-1" data-cell="0">
+          <div>
+            <div class="cell-header"><span class="cell-coord">1D × 내용</span></div>
+            <div class="cell-title">사실 확인</div>
+            <div class="cell-desc">정확한 정보와 개념을 구별하는 능력. 사실, 정의, 데이터를 정확히 재현하는 수준의 질문입니다.</div>
+          </div>
+          <div class="cell-peek"><span>"X의 정의는 무엇인가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 1D × 구조 -->
+        <div class="grid-cell row-1" data-cell="1">
+          <div>
+            <div class="cell-header"><span class="cell-coord">1D × 구조</span></div>
+            <div class="cell-title">단순 관계 파악</div>
+            <div class="cell-desc">기본적 인과나 분류 체계를 이해하는 능력. 요소 간 직선적 연결을 묻습니다.</div>
+          </div>
+          <div class="cell-peek"><span>"A와 B는 어떤 관계인가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 1D × 성찰 -->
+        <div class="grid-cell row-1" data-cell="2">
+          <div>
+            <div class="cell-header"><span class="cell-coord">1D × 성찰</span></div>
+            <div class="cell-title">전제 인식</div>
+            <div class="cell-desc">현재 설명이 어떤 가정 위에 서 있는지 인식하는 능력. 숨겨진 전제를 드러내는 질문입니다.</div>
+          </div>
+          <div class="cell-peek"><span>"이 주장의 전제는 무엇인가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 2D × 내용 -->
+        <div class="grid-cell row-2" data-cell="3">
+          <div>
+            <div class="cell-header"><span class="cell-coord">2D × 내용</span></div>
+            <div class="cell-title">원인 분석</div>
+            <div class="cell-desc">복합 요인을 비교하고 설명 구조를 해석하는 능력. 다중 원인과 조건을 분석합니다.</div>
+          </div>
+          <div class="cell-peek"><span>"왜 이런 결과가 나왔는가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 2D × 구조 -->
+        <div class="grid-cell row-2" data-cell="4">
+          <div>
+            <div class="cell-header"><span class="cell-coord">2D × 구조</span></div>
+            <div class="cell-title">시스템 연결</div>
+            <div class="cell-desc">상호작용, 피드백, 비선형 구조를 질문하는 능력. 피터 센게의 시스템 사고에 기반합니다.</div>
+          </div>
+          <div class="cell-peek"><span>"이 요소들은 어떻게 상호작용하는가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 2D × 성찰 -->
+        <div class="grid-cell row-2" data-cell="5">
+          <div>
+            <div class="cell-header"><span class="cell-coord">2D × 성찰</span></div>
+            <div class="cell-title">논리 검증</div>
+            <div class="cell-desc">주장과 근거의 정합성을 점검하는 능력. 논증의 구조적 타당성을 검토합니다.</div>
+          </div>
+          <div class="cell-peek"><span>"이 논증에 빠진 전제는 없는가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 3D × 내용 -->
+        <div class="grid-cell row-3" data-cell="6">
+          <div>
+            <div class="cell-header"><span class="cell-coord">3D × 내용</span></div>
+            <div class="cell-title">프레임 재정의</div>
+            <div class="cell-desc">문제 자체를 새롭게 설정하는 능력. 허버트 사이먼의 문제공간 이론 — 문제 정의가 사고의 핵심입니다.</div>
+          </div>
+          <div class="cell-peek"><span>"질문 자체가 잘못된 것은 아닌가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 3D × 구조 -->
+        <div class="grid-cell row-3" data-cell="7">
+          <div>
+            <div class="cell-header"><span class="cell-coord">3D × 구조</span></div>
+            <div class="cell-title">모델 설계</div>
+            <div class="cell-desc">새로운 개념적 구조나 전략적 설계를 제안하는 능력. 기존에 없던 프레임워크를 만듭니다.</div>
+          </div>
+          <div class="cell-peek"><span>"완전히 다른 구조로 접근하면?"</span><span class="peek-arrow">→</span></div>
+        </div>
+        <!-- 3D × 성찰 -->
+        <div class="grid-cell row-3" data-cell="8">
+          <div>
+            <div class="cell-header"><span class="cell-coord">3D × 성찰</span></div>
+            <div class="cell-title">윤리·가치 판단</div>
+            <div class="cell-desc">가능성과 정당성을 구분하고 규범적 기준을 설정하는 능력. 최고 차원의 성찰적 질문입니다.</div>
+          </div>
+          <div class="cell-peek"><span>"할 수 있다면, 해야 하는가?"</span><span class="peek-arrow">→</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="insight-section">
+      <div class="insight-card ai">
+        <div class="insight-label">AI 시대의 질문</div>
+        <div class="insight-text">
+          <strong>1차원 질문</strong>은 AI가 자동화합니다.<br>
+          그러나 <strong>3차원 질문</strong> — 전제를 뒤집고, 새로운 프레임을 설계하고, 가치를 판단하는 능력 — 은 <strong>인간 고유 영역</strong>으로 남습니다.
+        </div>
+      </div>
+      <div class="insight-card human">
+        <div class="insight-label">교육과 리더십</div>
+        <div class="insight-text">
+          질문은 단순한 호기심이 아니라 <strong>전략적 사고 도구</strong>입니다. 리더십과 교육은 이 9가지 역량을 <strong>체계적으로 훈련</strong>하는 방향으로 설계되어야 합니다.
+        </div>
+      </div>
+    </div>
+
+    <div class="scholars">
+      <div class="scholars-title">학술적 기반 · Theoretical Foundations</div>
+      <div class="scholar-tags">
+
+        <!-- Socrates -->
+        <div class="scholar-tag">Socrates <span>산파술 · 질문의 철학적 원형</span>
+          <div class="scholar-tooltip">
+            <div class="st-header">
+              <div class="st-avatar" style="background:rgba(233,69,96,0.12);">🏛️</div>
+              <div class="st-header-info">
+                <div class="st-name">Socrates 소크라테스</div>
+                <div class="st-period">c. 470–399 BC · 고대 그리스</div>
+              </div>
+            </div>
+            <div class="st-body">
+              <div class="st-theory-name">산파술 Maieutics</div>
+              <div class="st-desc">상대의 내면에 이미 존재하는 지식을 질문을 통해 끌어내는 대화법입니다. 소크라테스는 직접 답을 가르치지 않고, 연속적 질문으로 상대의 전제를 드러내고 모순을 발견하게 만들었습니다. 이 방법은 "나는 내가 모른다는 것을 안다"는 인식에서 출발합니다.</div>
+            </div>
+            <div class="st-contribution">
+              <div class="st-contrib-label">3×3 프레임에서의 위치</div>
+              <div class="st-contrib-text"><strong>질문의 철학적 원형</strong>을 제시한 인물입니다. 특히 <strong>성찰 축(1D×성찰: 전제 인식)</strong>의 기초가 되며, 모든 차원에서 '왜 그것이 타당한가'를 묻는 전통의 출발점입니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloom -->
+        <div class="scholar-tag">B. Bloom <span>인지 위계</span>
+          <div class="scholar-tooltip">
+            <div class="st-header">
+              <div class="st-avatar" style="background:rgba(96,165,250,0.12);">📊</div>
+              <div class="st-header-info">
+                <div class="st-name">Benjamin Bloom 벤저민 블룸</div>
+                <div class="st-period">1913–1999 · 미국 교육심리학자</div>
+              </div>
+            </div>
+            <div class="st-body">
+              <div class="st-theory-name">인지 영역 분류 체계 Bloom's Taxonomy</div>
+              <div class="st-desc">인지 영역을 기억 → 이해 → 적용 → 분석 → 평가 → 창조의 6단계 위계로 구분했습니다. 이 분류는 질문의 '깊이'를 측정하는 가장 널리 사용되는 프레임워크이며, 교육 목표 설계와 평가의 표준이 되었습니다.</div>
+            </div>
+            <div class="st-contribution">
+              <div class="st-contrib-label">3×3 프레임에서의 위치</div>
+              <div class="st-contrib-text">질문의 <strong>'깊이' 개념의 출발점</strong>입니다. <strong>1차원(기억·이해)</strong>, <strong>2차원(분석·평가)</strong>, <strong>3차원(창조)</strong>의 구분이 직접적으로 블룸의 위계에 대응합니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Flavell -->
+        <div class="scholar-tag">J. Flavell <span>메타인지</span>
+          <div class="scholar-tooltip">
+            <div class="st-header">
+              <div class="st-avatar" style="background:rgba(6,214,160,0.12);">🧠</div>
+              <div class="st-header-info">
+                <div class="st-name">John Flavell 존 플라벨</div>
+                <div class="st-period">1928–현재 · 미국 발달심리학자</div>
+              </div>
+            </div>
+            <div class="st-body">
+              <div class="st-theory-name">메타인지 Metacognition</div>
+              <div class="st-desc">'사고에 대한 사고(thinking about thinking)'라는 메타인지 개념을 정립했습니다. 자신의 인지 과정을 모니터링하고 조절하는 능력으로, 학습자가 무엇을 알고 무엇을 모르는지 인식하는 상위 사고 능력입니다.</div>
+            </div>
+            <div class="st-contribution">
+              <div class="st-contrib-label">3×3 프레임에서의 위치</div>
+              <div class="st-contrib-text"><strong>성찰 축 전체</strong>의 이론적 근거입니다. 질문의 상위 단계 — 자신의 사고 과정 자체를 질문하는 능력 — 이 메타인지에 해당하며, 특히 <strong>3D×성찰(윤리·가치 판단)</strong>이 메타인지의 정점입니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simon -->
+        <div class="scholar-tag">H. Simon <span>문제공간 이론</span>
+          <div class="scholar-tooltip">
+            <div class="st-header">
+              <div class="st-avatar" style="background:rgba(233,69,96,0.12);">🎯</div>
+              <div class="st-header-info">
+                <div class="st-name">Herbert Simon 허버트 사이먼</div>
+                <div class="st-period">1916–2001 · 노벨 경제학상 수상자</div>
+              </div>
+            </div>
+            <div class="st-body">
+              <div class="st-theory-name">문제공간 이론 Problem Space Theory</div>
+              <div class="st-desc">문제 해결의 핵심은 답을 찾는 것이 아니라 문제를 어떻게 정의하느냐에 달려 있다고 주장했습니다. 문제공간(problem space)의 구조 — 초기 상태, 목표 상태, 가능한 연산자 — 를 어떻게 설정하느냐가 사고의 질을 결정합니다.</div>
+            </div>
+            <div class="st-contribution">
+              <div class="st-contrib-label">3×3 프레임에서의 위치</div>
+              <div class="st-contrib-text"><strong>3D×내용(프레임 재정의)</strong>의 직접적 이론 기반입니다. '문제 정의 자체가 사고의 핵심'이라는 통찰은, 주어진 질문을 그대로 풀지 않고 <strong>질문 자체를 재설정</strong>하는 역량의 근거가 됩니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paul & Ennis -->
+        <div class="scholar-tag">R. Paul & R. Ennis <span>비판적 사고</span>
+          <div class="scholar-tooltip">
+            <div class="st-header">
+              <div class="st-avatar" style="background:rgba(245,158,11,0.12);">⚖️</div>
+              <div class="st-header-info">
+                <div class="st-name">Richard Paul · Robert Ennis</div>
+                <div class="st-period">20세기 후반 · 비판적 사고 교육의 선구자</div>
+              </div>
+            </div>
+            <div class="st-body">
+              <div class="st-theory-name">비판적 사고 Critical Thinking</div>
+              <div class="st-desc">리처드 폴은 사고의 요소(목적, 질문, 정보, 추론, 개념, 가정, 함의, 관점)를 체계화했고, 로버트 엔니스는 비판적 사고를 '무엇을 믿고 무엇을 할지 결정하는 합리적·성찰적 사고'로 정의했습니다. 두 학자는 논증 구조 분석과 오류 검출의 교육적 틀을 확립했습니다.</div>
+            </div>
+            <div class="st-contribution">
+              <div class="st-contrib-label">3×3 프레임에서의 위치</div>
+              <div class="st-contrib-text"><strong>2D×성찰(논리 검증)</strong>의 핵심 이론 기반입니다. 주장과 근거의 정합성을 점검하고, <strong>확증 편향·논리적 오류를 검출</strong>하는 역량이 직접적으로 이들의 비판적 사고 프레임에 근거합니다.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Senge -->
+        <div class="scholar-tag">P. Senge <span>시스템 사고</span>
+          <div class="scholar-tooltip">
+            <div class="st-header">
+              <div class="st-avatar" style="background:rgba(96,165,250,0.12);">🔄</div>
+              <div class="st-header-info">
+                <div class="st-name">Peter Senge 피터 센게</div>
+                <div class="st-period">1947–현재 · MIT 경영학 교수</div>
+              </div>
+            </div>
+            <div class="st-body">
+              <div class="st-theory-name">시스템 사고 Systems Thinking</div>
+              <div class="st-desc">조직학습의 다섯 가지 규율 중 핵심으로 시스템 사고를 제시했습니다. 개별 사건이 아닌 패턴과 구조를 보고, 피드백 루프·시간 지연·비선형 동학을 이해하는 사고방식입니다. 《학습하는 조직(The Fifth Discipline)》으로 경영학에 큰 영향을 미쳤습니다.</div>
+            </div>
+            <div class="st-contribution">
+              <div class="st-contrib-label">3×3 프레임에서의 위치</div>
+              <div class="st-contrib-text"><strong>2D×구조(시스템 연결)</strong>의 이론적 근거입니다. 상호작용, 피드백 루프, 레버리지 포인트를 질문하는 역량이 센게의 <strong>시스템 사고</strong>에 직접 기반합니다.</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>고대 철학에서 시작되어 현대 인지과학과 교육이론을 거치며 정교화된 통합적 관점<br>
+      블룸의 인지 위계 × 메타인지 이론 × 문제공간 이론</p>
+    </div>
+  </div>
+
+<script>
+const cellData = [
+  // 0: 1D × 내용
+  {
+    row: 1, coord: "1D × 내용 축", title: "사실 확인 역량",
+    desc: "정확한 정보를 식별하고, 용어와 개념을 올바르게 구분하는 역량입니다. 기초적이지만 모든 고차원 질문의 출발점이 됩니다. 블룸의 인지 위계에서 '기억'과 '이해' 수준에 해당합니다.",
+    bloom: "Bloom: 기억·이해", footer: "AI가 가장 잘 대체하는 영역",
+    icon: "💡",
+    examples: [
+      { text: "생성형 AI의 정의는 무엇인가?", ctx: "개념의 정확한 범위를 확인" },
+      { text: "이 지표의 측정 단위와 산출 공식은?", ctx: "데이터의 기본 속성을 확인" },
+      { text: "머신러닝과 딥러닝은 어떻게 다른가?", ctx: "유사 개념 간 경계를 구별" },
+      { text: "이 법률의 시행일과 적용 범위는?", ctx: "특정 사실 정보의 정확성 확인" },
+    ]
+  },
+  // 1: 1D × 구조
+  {
+    row: 1, coord: "1D × 구조 축", title: "단순 관계 파악 역량",
+    desc: "개별 요소 사이의 기본적인 인과관계나 분류 체계를 인식하는 역량입니다. 복잡한 시스템을 이해하기 위한 첫 단계이며, 선형적·위계적 관계를 파악합니다.",
+    bloom: "Bloom: 이해·적용", footer: "기본 연결 구조 인식",
+    icon: "🔗",
+    examples: [
+      { text: "이 부서는 조직도에서 어디에 위치하는가?", ctx: "위계적 분류 구조 파악" },
+      { text: "매출 하락의 직접적 원인은 무엇인가?", ctx: "단일 인과관계 확인" },
+      { text: "이 기술은 어떤 산업에 적용되는가?", ctx: "범주와 소속 관계 파악" },
+      { text: "프로젝트 A와 B의 선후 관계와 의존성은?", ctx: "시간적·논리적 순서 확인" },
+    ]
+  },
+  // 2: 1D × 성찰
+  {
+    row: 1, coord: "1D × 성찰 축", title: "전제 인식 역량",
+    desc: "모든 주장과 설명에는 암묵적 전제가 있습니다. 이를 인식하는 것은 비판적 사고의 출발점이며, 소크라테스 산파술의 핵심 기능입니다. 메타인지의 기초 단계에 해당합니다.",
+    bloom: "Bloom: 이해·분석", footer: "소크라테스 산파술의 기초",
+    icon: "🔍",
+    examples: [
+      { text: "이 전략은 시장이 성장한다는 가정에 기반하는가?", ctx: "숨겨진 가정 식별" },
+      { text: "이 연구는 어떤 표본을 기준으로 일반화했는가?", ctx: "연구의 범위 전제 확인" },
+      { text: "'효율성'이라는 기준은 누가, 왜 정한 것인가?", ctx: "평가 기준의 전제 탐색" },
+      { text: "이 보고서가 '정상'으로 간주하는 기준선은?", ctx: "기준점(baseline)의 전제 인식" },
+    ]
+  },
+  // 3: 2D × 내용
+  {
+    row: 2, coord: "2D × 내용 축", title: "원인 분석 역량",
+    desc: "단순한 '왜'를 넘어 복합적 요인을 비교하고, 어떤 설명 구조가 더 타당한지 해석하는 역량입니다. 의사결정의 질을 결정하며, 블룸의 '분석' 단계에 해당합니다.",
+    bloom: "Bloom: 분석", footer: "복합 인과 해석 능력",
+    icon: "⚡",
+    examples: [
+      { text: "고객 이탈의 주요 원인 3가지를 비교하면?", ctx: "복합 요인 비교 분석" },
+      { text: "기술적 요인과 조직적 요인 중 어느 것이 더 큰 영향을 미쳤는가?", ctx: "원인의 상대적 가중치 판단" },
+      { text: "같은 전략이 A시장에서는 성공하고 B시장에서는 실패한 이유는?", ctx: "조건 차이에 따른 결과 분석" },
+      { text: "이 현상의 근본 원인(root cause)과 촉발 요인(trigger)을 구분하면?", ctx: "원인의 층위 구분" },
+    ]
+  },
+  // 4: 2D × 구조
+  {
+    row: 2, coord: "2D × 구조 축", title: "시스템 연결 역량",
+    desc: "개별 요소가 아닌 전체 시스템의 동학을 질문하는 역량입니다. 피드백 루프, 창발성, 비선형 효과를 인식합니다. 피터 센게의 시스템 사고(Systems Thinking)에 기반합니다.",
+    bloom: "Bloom: 분석·평가", footer: "P. Senge 시스템 사고",
+    icon: "🔄",
+    examples: [
+      { text: "가격 인하가 품질 인식에 미치는 피드백 루프는?", ctx: "순환적 인과 구조 파악" },
+      { text: "한 부서의 변화가 다른 부서에 어떤 파급효과를 일으키는가?", ctx: "조직 내 연쇄 영향 분석" },
+      { text: "이 시스템에서 레버리지 포인트(최소 개입 최대 효과)는 어디인가?", ctx: "시스템 개입 지점 탐색" },
+      { text: "단기 해결책이 장기적으로 문제를 악화시키지는 않는가?", ctx: "시간 지연 효과와 역설 탐색" },
+    ]
+  },
+  // 5: 2D × 성찰
+  {
+    row: 2, coord: "2D × 성찰 축", title: "논리 검증 역량",
+    desc: "주장과 근거 사이의 논리적 정합성을 점검하는 역량입니다. 리처드 폴과 로버트 엔니스가 체계화한 비판적 사고(Critical Thinking)의 핵심 기능이며, 확증 편향과 논리적 오류를 검출합니다.",
+    bloom: "Bloom: 평가", footer: "R. Paul · R. Ennis 비판적 사고",
+    icon: "⚖️",
+    examples: [
+      { text: "이 데이터가 실제로 그 결론을 뒷받침하는가?", ctx: "근거-결론 간 정합성 점검" },
+      { text: "상관관계를 인과관계로 오인하고 있지는 않은가?", ctx: "논리적 오류 검출" },
+      { text: "반대 증거를 의도적으로 배제하지 않았는가?", ctx: "확증 편향 점검" },
+      { text: "성공 사례만 인용하고 실패 사례를 무시하는 것은 아닌가?", ctx: "생존자 편향(Survivorship Bias) 검증" },
+    ]
+  },
+  // 6: 3D × 내용
+  {
+    row: 3, coord: "3D × 내용 축", title: "프레임 재정의 역량",
+    desc: "주어진 문제를 그대로 풀지 않고, 문제 자체를 다시 정의하는 역량입니다. 허버트 사이먼의 문제공간 이론에 기반하며, AI가 대체하기 가장 어려운 인간 고유 영역입니다.",
+    bloom: "Bloom: 창조", footer: "H. Simon 문제공간 이론",
+    icon: "🔥",
+    examples: [
+      { text: "매출 증가가 아니라 고객 생애가치(LTV)를 기준으로 보면 어떤가?", ctx: "성과 지표 자체를 재설정" },
+      { text: "'경쟁'이 아니라 '생태계 조성'의 관점에서 보면?", ctx: "문제의 패러다임 전환" },
+      { text: "이 문제가 해결되어야 할 '문제'가 정말 맞는가?", ctx: "문제 존재 자체에 대한 질문" },
+      { text: "사용자가 원하는 것이 아니라 진짜 필요한 것은?", ctx: "표면 요구 vs. 심층 니즈 재정의" },
+    ]
+  },
+  // 7: 3D × 구조
+  {
+    row: 3, coord: "3D × 구조 축", title: "모델 설계 역량",
+    desc: "기존 구조를 분석하는 것을 넘어, 완전히 새로운 개념적 모델이나 전략적 아키텍처를 설계하는 역량입니다. 블룸의 인지 위계에서 최상위 '창조' 단계에 해당합니다.",
+    bloom: "Bloom: 창조", footer: "전략적 아키텍처 설계",
+    icon: "🏗️",
+    examples: [
+      { text: "플랫폼과 파이프라인을 결합한 새로운 비즈니스 구조는 가능한가?", ctx: "새로운 사업 모델 구조 설계" },
+      { text: "위계 조직과 네트워크 조직의 장점만 결합하면?", ctx: "조직 구조의 창조적 설계" },
+      { text: "학습-실행-평가의 순환이 아닌 동시 병행 구조를 만들면?", ctx: "프로세스 아키텍처 혁신" },
+      { text: "인간과 AI의 협업을 위한 완전히 새로운 워크플로우는?", ctx: "인간-AI 협업 구조 설계" },
+    ]
+  },
+  // 8: 3D × 성찰
+  {
+    row: 3, coord: "3D × 성찰 축", title: "윤리·가치 판단 역량",
+    desc: "기술적 가능성과 윤리적 정당성을 구분하고, 규범적 기준을 스스로 설정하는 역량입니다. 9가지 역량 중 가장 높은 차원의 인간 고유 질문이며, 존 플라벨의 메타인지 정점에 해당합니다.",
+    bloom: "Bloom: 평가·창조", footer: "인간 고유의 최고 차원",
+    icon: "🌟",
+    examples: [
+      { text: "AI가 채용 결정을 내리는 것이 기술적으로 가능하지만, 그래야 하는가?", ctx: "기술 가능성 vs. 윤리적 타당성" },
+      { text: "효율성을 위해 개인정보를 어디까지 활용할 수 있는가?", ctx: "가치 간 충돌과 경계 설정" },
+      { text: "이 정책이 가장 취약한 집단에게 미치는 영향은 고려되었는가?", ctx: "공정성과 형평성 기준 설정" },
+      { text: "단기 수익과 장기 사회적 가치가 충돌할 때 어떤 기준으로 판단하는가?", ctx: "규범적 판단 프레임 수립" },
+    ]
+  },
+];
+
+const overlay = document.getElementById('overlay');
+const panel = document.getElementById('panel');
+const panelClose = document.getElementById('panelClose');
+
+function openPanel(idx) {
+  const d = cellData[idx];
+  panel.setAttribute('data-row', d.row);
+  document.getElementById('pCoord').textContent = d.coord;
+  document.getElementById('pTitle').textContent = d.title;
+  document.getElementById('pDesc').textContent = d.desc;
+  document.getElementById('pBloom').textContent = d.bloom;
+  document.getElementById('pFooter').textContent = d.footer;
+
+  const exContainer = document.getElementById('pExamples');
+  exContainer.innerHTML = d.examples.map(e => `
+    <div class="example-item">
+      <span class="ex-icon">${d.icon}</span>
+      <div>
+        <div class="ex-text">"${e.text}"</div>
+        <div class="ex-context">${e.ctx}</div>
+      </div>
+    </div>
+  `).join('');
+
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closePanel() {
+  overlay.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+document.querySelectorAll('.grid-cell').forEach(cell => {
+  cell.addEventListener('click', () => openPanel(parseInt(cell.dataset.cell)));
+});
+
+panelClose.addEventListener('click', closePanel);
+overlay.addEventListener('click', (e) => {
+  if (e.target === overlay) closePanel();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closePanel();
+});
+</script>
+</body>
+</html>
